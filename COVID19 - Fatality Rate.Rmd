@@ -1,24 +1,18 @@
 ---
-title: ''
+title: 'COVID-19 fatality rate'
 author: "Sumiya Ganbaatar"
 date: "10/8/2021"
 output: pdf_document
 ---
 
-#Studying relationship between "GDP per capita" and "Coronavirus case fatality rate"
-
-#Our hypothesis is that countries that have a lower GDP per capita have higher coronavirus case fatality rate.
-
 
 ```{r, include=FALSE}
-library(mosaic); library(readr); library(ggformula); library(tidyverse);library(purrr); library(lares); library(leaps); library(grid);library(gridExtra);library(cleandata); library(ggplot2)
+library(mosaic); library(readr); library(ggformula); library(tidyverse);library(purrr); library(lares); library(leaps); library(grid);library(gridExtra);library(cleandata); library(ggplot2);library(caret)
 ```
-
-
 
 ```{r}
 #Importing the GDP data
-df_gdp <- read.csv("/Users/bayarmaaorsoo/Desktop/DATA106 - Project/gdp-per-capita-worldbank.csv")
+df_gdp <- read.csv("/Users/bayarmaaorsoo/Desktop/Projects/COVID19 - Fatality Rate/gdp-per-capita-worldbank.csv")
 #Choosing the year 2020 because that's the latest data
 df_gdp1 <- df_gdp %>% filter(Year == 2020)
 #Dropping columns "Code" and "Year" as we won't use them.
@@ -28,9 +22,8 @@ df_gdp1 <- df_gdp1 %>% rename(Country = Entity, GDP_per_capita = GDP.per.capita.
 str(df_gdp1)
 ```
 
-
 ```{r}
-data_covid <- read_csv("/Users/bayarmaaorsoo/Desktop/DATA106 - Project/owid-covid-data (1).csv")
+data_covid <- read_csv("/Users/bayarmaaorsoo/Desktop/Projects/COVID19 - Fatality Rate/COVID data by JHU.csv")
 #Selecting necessary data
 data_covid <- data_covid[data_covid$date == '2021-12-02',]
 variables <- c('location', 'total_cases', 'total_deaths')
@@ -39,10 +32,7 @@ data_covid <- data_covid[variables]
 data_covid<- data_covid %>% mutate(Fatality_rate = (total_deaths/total_cases)*100)
 #Changing a column name
 colnames(data_covid)[1] <- "Country"
-
 ```
-
-
 
 ```{r}
 #Joining two datatables
@@ -52,10 +42,9 @@ data <- inner_join(x= df_gdp1, y = data_covid, by = "Country")
 data <- subset(data, Country != 'Vanuatu')
 ```
 
-
 ```{r}
 #Importing government effectiveness data
-data_gov <- read.csv("/Users/bayarmaaorsoo/Desktop/DATA106 - Project/Goverment effectiveness index.csv")
+data_gov <- read.csv("/Users/bayarmaaorsoo/Desktop/Projects/COVID19 - Fatality Rate/Goverment effectiveness index.csv")
 #Selecting only country name and score
 data_gov <- subset(data_gov, select = c(Country.Name, X2020..YR2020.))
 #Changing column names
@@ -66,11 +55,9 @@ df <- inner_join(x = data, y = data_gov, by = 'Country')
 df$Gov_index <- as.double(df$Gov_index)
 ```
 
-
-
 ```{r}
 #Importing age data
-data_age80 <- read_csv("/Users/bayarmaaorsoo/Desktop/Age_over_80.csv")
+data_age80 <- read_csv("/Users/bayarmaaorsoo/Desktop/Projects/COVID19 - Fatality Rate/Age_over_80.csv")
 #Selecting necessary data
 data_age80 <- subset(data_age80, select = c(Country, Value))
 #Changing column names
@@ -79,8 +66,10 @@ colnames(data_age80) <- c("Country","age80")
 df <- inner_join(x= data_age80, y = df, by = "Country")
 
 ```
-```{r}
 
+    # Exploratory Data Analysis
+
+```{r}
 ggplot(aes(x = age80, y = (Fatality_rate)), data = df) +geom_point() + geom_smooth(method='lm') + labs(title = "Covid fatality rate and percentage of population age over 80",  x ="Percentage of population age over 80", y = "Coronavirus Fatality Rate") + theme(plot.title = element_text(color="blue", size=14, face="bold.italic"))
 
 
@@ -90,26 +79,6 @@ ggplot(aes(x = GDP_per_capita, y = (Fatality_rate)), data = data) +geom_point() 
 
 ```
 
-```{r}
-df <- na.omit(df)
-modelfull <-lm(Fatality_rate ~ age80+Gov_index+GDP_per_capita, data= df);summary(modelfull)
-```
-
-Variable GDP_per_capita is statistically insignificant to predict fatality rate with variable Value and Gov_index in a model
-
-```{r}
-bestmodel <- lm(Fatality_rate ~ age80+Gov_index, data= df);summary(bestmodel)
-```
-
-
-
-
-
-
-
-
-
-
 
 ```{r}
 #Histogram
@@ -118,14 +87,6 @@ ggplot(df, aes(x = Fatality_rate))  + geom_histogram()
 ggplot(df, aes(x = GDP_per_capita)) + geom_histogram()
 ggplot(df, aes(x = Gov_index)) + geom_histogram()
 ggplot(df, aes(x = age80)) + geom_histogram()
-```
-
-
-    # Exploratory Data Analysis
-    
-    
-```{r}
-str(df)
 ```
 
 
@@ -147,20 +108,22 @@ df <- df[df$Fatality_rate != 0,]
 df <- df[complete.cases(df$Fatality_rate),]
 ```
 
+    # Fitting models
+
+```{r}
+df <- na.omit(df)
+modelfull <-lm(Fatality_rate ~ age80+Gov_index+GDP_per_capita, data= df);summary(modelfull)
+```
+
+```{r}
+bestmodel <- lm(Fatality_rate ~ age80+Gov_index, data= df);summary(bestmodel)
+```
+
 ```{r}
 #Fitting models
 model1 <- lm(log(Fatality_rate)~GDP_per_capita, data = df); summary(model1)
 model2 <- lm(log(Fatality_rate)~Gov_index, data = df); summary(model2)
 model3 <- lm(log(Fatality_rate)~Gov_index+GDP_per_capita, data = df); summary(model3)
-
-plot(model2)
-df[df['Fatality_rate']>4,]
-```
-
-
-```{r}
-modellog <- lm(log(Fatality_rate)~age80+Gov_index+GDP_per_capita, data = df); summary(modellog)
-corr(df)
 ```
 
 ```{r}
@@ -171,7 +134,6 @@ train(log(Fatality_rate) ~ age80+Gov_index+GDP_per_capita,
       method = "lm",
       na.action = na.pass)
 
-data_control2 <- trainControl(method = "LOOCV") # Use Leave One Out.
 train((Fatality_rate) ~ age80+Gov_index+GDP_per_capita,
       data = df,
       trControl = data_control2,
@@ -180,14 +142,9 @@ train((Fatality_rate) ~ age80+Gov_index+GDP_per_capita,
 
 ```
 
-```{r}
-summary(modellog)
-```
-
 
 ```{r}
-gdpmodel <- lm(log(Fatality_rate)~GDP_per_capita, data = df); summary(gdpmodel)
-govmodel <- lm(log(Fatality_rate)~Gov_index, data = df); summary(govmodel)
-agemodel <- lm((Fatality_rate)~age80, data = df); summary(agemodel)
+plot(modelfull)
+plot(bestmodel)
 ```
 
